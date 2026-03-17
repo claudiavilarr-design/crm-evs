@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EVS ENERGY CRM • versão melhorada</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --bg:#0f172a;--card:#111827;--muted:#94a3b8;--line:#243041;--text:#f8fafc;
+      --brand:#f59e0b;--ok:#22c55e;--warn:#f97316;--danger:#ef4444;--blue:#38bdf8;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#09111f;color:var(--text)}
+    .wrap{max-width:1500px;margin:0 auto;padding:20px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .brand{font-size:28px;font-weight:700}
+    .muted{color:var(--muted)}
+    .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+    .tabbtn,.btn{background:#182234;color:#fff;border:1px solid var(--line);padding:10px 14px;border-radius:12px;cursor:pointer}
+    .tabbtn.active,.btn.brand{background:var(--brand);color:#111827;font-weight:700}
+    .btn.green{background:var(--ok);color:#08210e;font-weight:700}
+    .btn.red{background:var(--danger);color:#fff}
+    .btn.blue{background:var(--blue);color:#062331;font-weight:700}
+    .grid{display:grid;gap:16px}
+    .g-2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+    .g-3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+    .card h3,.card h2{margin-top:0}
+    input,select,textarea{width:100%;padding:11px 12px;border-radius:12px;border:1px solid #334155;background:#0b1220;color:#fff}
+    textarea{min-height:86px;resize:vertical}
+    label{display:block;font-size:13px;margin:8px 0 6px;color:#cbd5e1}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+    .hidden{display:none !important}
+    .table-wrap{overflow:auto}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #223149;text-align:left;font-size:14px;vertical-align:top}
+    th{color:#cbd5e1}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700}
+    .pill.ok{background:rgba(34,197,94,.15);color:#86efac}
+    .pill.warn{background:rgba(249,115,22,.15);color:#fdba74}
+    .pill.danger{background:rgba(239,68,68,.15);color:#fca5a5}
+    .pill.blue{background:rgba(56,189,248,.15);color:#7dd3fc}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .stat{background:linear-gradient(180deg,#111827,#0b1220);border:1px solid #243041;border-radius:18px;padding:16px}
+    .stat b{display:block;font-size:28px;margin-top:8px}
+    .kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;align-items:start}
+    .col{background:#0c1524;border:1px solid var(--line);border-radius:18px;padding:12px;min-height:220px}
+    .col h4{margin:6px 4px 12px}
+    .item{background:#111827;border:1px solid #2b3648;border-radius:14px;padding:12px;margin-bottom:10px}
+    .item strong{display:block;margin-bottom:6px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+    .login-box{max-width:460px;margin:60px auto}
+    .small{font-size:12px}
+    .section{margin-top:16px}
+    .sep{height:1px;background:#233046;margin:12px 0}
+    @media print{
+      .noprint,.tabs,.top .btn{display:none !important}
+      body{background:#fff;color:#111}
+      .card,.col,.item,.stat{border:1px solid #ddd;box-shadow:none;background:#fff;color:#111}
+      input,select,textarea{border:1px solid #ccc;background:#fff;color:#111}
+    }
+  </style>
+</head>
+<body>
+  <div id="loginView" class="wrap login-box">
+    <div class="card">
+      <h2>⚡ EVS ENERGY CRM</h2>
+      <p class="muted">Versão melhorada com comissão, valor a receber, clientes futuros e alerta de manutenção.</p>
+      <label>Senha única</label>
+      <input id="loginPassword" type="password" placeholder="Digite a senha" />
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn brand" onclick="login()">Entrar</button>
+      </div>
+      <p class="small muted" style="margin-top:14px">Senha padrão no arquivo: <b>EVS2026</b>. Pode alterar na constante <code>APP_PASSWORD</code>.</p>
+    </div>
+  </div>
+
+  <div id="appView" class="wrap hidden">
+    <div class="top">
+      <div>
+        <div class="brand">⚡ EVS ENERGY • CRM COMERCIAL</div>
+        <div class="muted">Supabase online • relatório por vendedor, cliente, data e mês</div>
+      </div>
+      <div class="toolbar noprint">
+        <button class="btn blue" onclick="loadAll()">Atualizar</button>
+        <button class="btn" onclick="window.print()">Imprimir / PDF</button>
+        <button class="btn red" onclick="logout()">Sair</button>
+      </div>
+    </div>
+
+    <div class="tabs noprint">
+      <button class="tabbtn active" data-tab="dashboard">Dashboard</button>
+      <button class="tabbtn" data-tab="cadastro">Clientes</button>
+      <button class="tabbtn" data-tab="kanban">Kanban</button>
+      <button class="tabbtn" data-tab="futuros">Clientes Futuros</button>
+      <button class="tabbtn" data-tab="relatorios">Relatórios / PDF</button>
+      <button class="tabbtn" data-tab="alertas">Alertas</button>
+      <button class="tabbtn" data-tab="config">Configuração</button>
+    </div>
+
+    <section id="dashboard" class="tabpage">
+      <div class="stats">
+        <div class="stat"><div class="muted">Clientes ativos</div><b id="stAtivos">0</b></div>
+        <div class="stat"><div class="muted">Clientes futuros</div><b id="stFuturos">0</b></div>
+        <div class="stat"><div class="muted">Valor a receber</div><b id="stReceber">R$ 0,00</b></div>
+        <div class="stat"><div class="muted">Comissão prevista</div><b id="stComissao">R$ 0,00</b></div>
+      </div>
+      <div class="grid g-2 section">
+        <div class="card">
+          <h3>Resumo financeiro mensal</h3>
+          <div class="row">
+            <div>
+              <label>Mês</label>
+              <input id="dashMes" type="month" />
+            </div>
+            <div style="display:flex;align-items:end">
+              <button class="btn brand" onclick="gerarResumoMensal()">Atualizar</button>
+            </div>
+          </div>
+          <div id="dashResumo" class="section muted">Selecione o mês para ver o resumo.</div>
+        </div>
+        <div class="card">
+          <h3>Próximos alertas</h3>
+          <div id="dashAlertas"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cadastro" class="tabpage hidden">
+      <div class="card">
+        <h3>Novo / Editar cliente</h3>
+        <input type="hidden" id="c_id" />
+        <div class="row">
+          <div><label>Cliente</label><input id="c_nome" /></div>
+          <div><label>Vendedor / responsável</label><input id="c_vendedor" /></div>
+          <div><label>Status</label>
+            <select id="c_status">
+              <option>Lead</option><option>Proposta</option><option>Contrato assinado</option>
+              <option>Projeto</option><option>Instalação</option><option>Pós-venda</option><option>Concluído</option>
+            </select>
+          </div>
+          <div><label>Data da assinatura do contrato</label><input id="c_data_contrato" type="date" /></div>
+        </div>
+        <div class="row">
+          <div><label>Valor proposta (R$)</label><input id="c_valor_proposta" type="number" step="0.01" /></div>
+          <div><label>Valor a receber (R$)</label><input id="c_valor_receber" type="number" step="0.01" /></div>
+          <div><label>% comissão</label><input id="c_comissao_percentual" type="number" step="0.01" value="0" /></div>
+          <div><label>Data prevista / prazo</label><input id="c_data_prevista" type="date" /></div>
+        </div>
+        <div class="row">
+          <div><label>KWP</label><input id="c_kwp" type="number" step="0.01" /></div>
+          <div><label>Valor entrada / sinal (R$)</label><input id="c_valor_entrada" type="number" step="0.01" /></div>
+          <div><label>Etapa Kanban</label>
+            <select id="c_etapa">
+              <option>Lead</option><option>Proposta</option><option>Contrato</option><option>Projeto</option>
+              <option>Instalação</option><option>Concluído</option>
+            </select>
+          </div>
+          <div><label>Tipo</label>
+            <select id="c_tipo"><option value="ativo">Cliente ativo</option><option value="futuro">Cliente futuro</option></select>
+          </div>
+        </div>
+        <label>Observações</label>
+        <textarea id="c_obs"></textarea>
+        <div class="toolbar section noprint">
+          <button class="btn green" onclick="salvarCliente()">Salvar</button>
+          <button class="btn" onclick="limparFormulario()">Limpar</button>
+        </div>
+      </div>
+
+      <div class="card section">
+        <h3>Lista de clientes</h3>
+        <div class="row noprint">
+          <div><label>Buscar</label><input id="buscaCliente" oninput="renderTabelaClientes()" placeholder="Nome, vendedor ou status" /></div>
+          <div><label>Filtro status</label><input id="filtroStatus" oninput="renderTabelaClientes()" placeholder="Ex.: Proposta" /></div>
+        </div>
+        <div class="table-wrap section"><table><thead><tr><th>Cliente</th><th>Vendedor</th><th>Status</th><th>Contrato</th><th>Valor a receber</th><th>Comissão</th><th>Ações</th></tr></thead><tbody id="tbClientes"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="kanban" class="tabpage hidden">
+      <div class="card">
+        <h3>Kanban comercial</h3>
+        <div class="kanban" id="kanbanBoard"></div>
+      </div>
+    </section>
+
+    <section id="futuros" class="tabpage hidden">
+      <div class="card">
+        <h3>Clientes futuros / possível venda</h3>
+        <div class="row noprint">
+          <div><label>Data inicial</label><input id="futDataIni" type="date" onchange="renderFuturos()" /></div>
+          <div><label>Data final</label><input id="futDataFim" type="date" onchange="renderFuturos()" /></div>
+          <div style="display:flex;align-items:end"><button class="btn brand" onclick="renderFuturos()">Filtrar</button></div>
+        </div>
+        <div class="table-wrap section"><table><thead><tr><th>Cliente futuro</th><th>Vendedor</th><th>Data prevista</th><th>Status</th><th>Observações</th><th>Ações</th></tr></thead><tbody id="tbFuturos"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="relatorios" class="tabpage hidden">
+      <div class="grid g-2">
+        <div class="card">
+          <h3>Relatório de comissão</h3>
+          <div class="row noprint">
+            <div><label>Vendedor</label><input id="rComVendedor" placeholder="Todos ou nome" /></div>
+            <div><label>Data inicial</label><input id="rComIni" type="date" /></div>
+            <div><label>Data final</label><input id="rComFim" type="date" /></div>
+            <div><label>Mês</label><input id="rComMes" type="month" /></div>
+          </div>
+          <div class="toolbar section noprint"><button class="btn brand" onclick="relatorioComissao()">Gerar</button></div>
+          <div id="outComissao"></div>
+        </div>
+
+        <div class="card">
+          <h3>Relatório de valor a receber</h3>
+          <div class="row noprint">
+            <div><label>Cliente</label><input id="rRecCliente" placeholder="Todos ou nome" /></div>
+            <div><label>Mês</label><input id="rRecMes" type="month" /></div>
+          </div>
+          <div class="toolbar section noprint"><button class="btn brand" onclick="relatorioReceber()">Gerar</button></div>
+          <div id="outReceber"></div>
+        </div>
+      </div>
+
+      <div class="grid g-2 section">
+        <div class="card">
+          <h3>Relatório de clientes futuros por data</h3>
+          <div class="row noprint">
+            <div><label>Data inicial</label><input id="rFutIni" type="date" /></div>
+            <div><label>Data final</label><input id="rFutFim" type="date" /></div>
+          </div>
+          <div class="toolbar section noprint"><button class="btn brand" onclick="relatorioFuturos()">Gerar</button></div>
+          <div id="outFuturos"></div>
+        </div>
+
+        <div class="card">
+          <h3>Linha do tempo do cliente</h3>
+          <div class="row noprint">
+            <div><label>Cliente</label><input id="rCliNome" placeholder="Digite o nome" /></div>
+          </div>
+          <div class="toolbar section noprint"><button class="btn brand" onclick="relatorioCliente()">Gerar</button></div>
+          <div id="outCliente"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="alertas" class="tabpage hidden">
+      <div class="card">
+        <h3>Alertas de prazos e manutenção</h3>
+        <p class="muted">O sistema avisa <b>10 dias antes</b> do vencimento de <b>1 ano da assinatura do contrato</b> para manutenção.</p>
+        <div class="row noprint">
+          <div><label>Data inicial</label><input id="aIni" type="date" onchange="renderAlertas()" /></div>
+          <div><label>Data final</label><input id="aFim" type="date" onchange="renderAlertas()" /></div>
+          <div style="display:flex;align-items:end"><button class="btn brand" onclick="renderAlertas()">Gerar relatório</button></div>
+        </div>
+        <div id="outAlertas" class="section"></div>
+      </div>
+    </section>
+
+    <section id="config" class="tabpage hidden">
+      <div class="card">
+        <h3>Configuração</h3>
+        <p class="muted">Esta versão já vem pronta para você publicar como <b>index.html</b>. Se quiser trocar senha ou Supabase, altere as constantes no início do arquivo.</p>
+        <ul>
+          <li>Senha padrão: <b>EVS2026</b></li>
+          <li>Tabela usada: <b>crm_clientes</b></li>
+          <li>Campos principais: cliente, vendedor, valor_a_receber, comissão, cliente futuro e alertas</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+<script>
+const SUPABASE_URL = 'https://vtsrrsgzcophirxaqtob.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_t7zgaSKekiTHCVHZOEmLqg_u-RAOnCc';
+const APP_PASSWORD = 'EVS2026';
+const TABLE = 'crm_clientes';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let clientes = [];
+
+const $ = (id)=>document.getElementById(id);
+const money = (v)=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fmtDate = (d)=> d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '';
+const todayISO = ()=> new Date().toISOString().slice(0,10);
+const monthStartEnd = (ym)=> {
+  if(!ym) return [null,null];
+  const [y,m] = ym.split('-').map(Number);
+  const first = new Date(y,m-1,1);
+  const last = new Date(y,m,0);
+  return [first.toISOString().slice(0,10), last.toISOString().slice(0,10)];
+};
+const escapeHtml = (s='') => s.toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+
+function login(){
+  if($("loginPassword").value !== APP_PASSWORD){ alert('Senha incorreta'); return; }
+  localStorage.setItem('evs_logged','1');
+  $('loginView').classList.add('hidden');
+  $('appView').classList.remove('hidden');
+  loadAll();
+}
+function logout(){ localStorage.removeItem('evs_logged'); location.reload(); }
+
+function bindTabs(){
+  document.querySelectorAll('.tabbtn').forEach(btn=>{
+    btn.onclick=()=>{
+      document.querySelectorAll('.tabbtn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tabpage').forEach(p=>p.classList.add('hidden'));
+      btn.classList.add('active');
+      $(btn.dataset.tab).classList.remove('hidden');
+    };
+  });
+}
+
+function calcComissao(c){ return (Number(c.valor_a_receber||0) * Number(c.comissao_percentual||0))/100; }
+function dateInRange(date, ini, fim){ if(!date) return false; return (!ini || date>=ini) && (!fim || date<=fim); }
+function contains(hay, needle){ return hay.toLowerCase().includes((needle||'').toLowerCase()); }
+
+async function loadAll(){
+  const { data, error } = await supabaseClient.from(TABLE).select('*').order('created_at',{ascending:false});
+  if(error){
+    console.error(error);
+    alert('Não consegui ler os dados da tabela '+TABLE+'. Publique a versão com o SQL de apoio.');
+    return;
+  }
+  clientes = data || [];
+  renderDashboard();
+  renderTabelaClientes();
+  renderKanban();
+  renderFuturos();
+  renderAlertas();
+}
+
+function limparFormulario(){
+  ['c_id','c_nome','c_vendedor','c_data_contrato','c_valor_proposta','c_valor_receber','c_comissao_percentual','c_data_prevista','c_kwp','c_valor_entrada','c_obs','buscaCliente','filtroStatus'].forEach(id=>{ if($(id)) $(id).value=''; });
+  $('c_status').value='Lead'; $('c_etapa').value='Lead'; $('c_tipo').value='ativo'; $('c_comissao_percentual').value='0';
+}
+
+async function salvarCliente(){
+  const payload = {
+    nome: $('c_nome').value.trim(),
+    vendedor: $('c_vendedor').value.trim(),
+    status: $('c_status').value,
+    data_contrato: $('c_data_contrato').value || null,
+    valor_proposta: Number($('c_valor_proposta').value || 0),
+    valor_a_receber: Number($('c_valor_receber').value || 0),
+    comissao_percentual: Number($('c_comissao_percentual').value || 0),
+    data_prevista: $('c_data_prevista').value || null,
+    kwp: Number($('c_kwp').value || 0),
+    valor_entrada: Number($('c_valor_entrada').value || 0),
+    etapa: $('c_etapa').value,
+    tipo: $('c_tipo').value,
+    observacoes: $('c_obs').value.trim()
+  };
+  if(!payload.nome){ alert('Informe o nome do cliente'); return; }
+  let res;
+  if($('c_id').value){
+    res = await supabaseClient.from(TABLE).update(payload).eq('id',$('c_id').value);
+  } else {
+    res = await supabaseClient.from(TABLE).insert(payload);
+  }
+  if(res.error){ console.error(res.error); alert('Erro ao salvar'); return; }
+  alert('Registro salvo com sucesso');
+  limparFormulario();
+  loadAll();
+}
+
+function editarCliente(id){
+  const c = clientes.find(x=>x.id===id);
+  if(!c) return;
+  $('c_id').value=c.id; $('c_nome').value=c.nome||''; $('c_vendedor').value=c.vendedor||'';
+  $('c_status').value=c.status||'Lead'; $('c_data_contrato').value=c.data_contrato||''; $('c_valor_proposta').value=c.valor_proposta||0;
+  $('c_valor_receber').value=c.valor_a_receber||0; $('c_comissao_percentual').value=c.comissao_percentual||0; $('c_data_prevista').value=c.data_prevista||'';
+  $('c_kwp').value=c.kwp||0; $('c_valor_entrada').value=c.valor_entrada||0; $('c_etapa').value=c.etapa||'Lead'; $('c_tipo').value=c.tipo||'ativo'; $('c_obs').value=c.observacoes||'';
+  document.querySelector('[data-tab="cadastro"]').click();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function excluirCliente(id){
+  if(!confirm('Excluir este cadastro?')) return;
+  const {error} = await supabaseClient.from(TABLE).delete().eq('id',id);
+  if(error){ alert('Erro ao excluir'); return; }
+  loadAll();
+}
+
+async function resgatarFuturo(id){
+  const {error} = await supabaseClient.from(TABLE).update({tipo:'ativo', status:'Lead', etapa:'Lead'}).eq('id',id);
+  if(error){ alert('Erro ao resgatar cliente futuro'); return; }
+  alert('Cliente futuro resgatado para novo cliente');
+  loadAll();
+}
+
+function renderDashboard(){
+  const ativos = clientes.filter(c=>c.tipo!=='futuro');
+  const futuros = clientes.filter(c=>c.tipo==='futuro');
+  $('stAtivos').textContent = ativos.length;
+  $('stFuturos').textContent = futuros.length;
+  $('stReceber').textContent = money(ativos.reduce((s,c)=>s+Number(c.valor_a_receber||0),0));
+  $('stComissao').textContent = money(ativos.reduce((s,c)=>s+calcComissao(c),0));
+  gerarResumoMensal();
+  const al = maintenanceAlerts().slice(0,5);
+  $('dashAlertas').innerHTML = al.length ? al.map(a=>`<div class="item"><strong>${escapeHtml(a.nome)}</strong><div class="small">Contrato: ${fmtDate(a.data_contrato)} • Manutenção: ${fmtDate(a.data_manutencao)}</div><div class="pill warn">Alerta em ${a.dias_restantes} dia(s)</div></div>`).join('') : '<div class="muted">Sem alertas próximos.</div>';
+}
+
+function gerarResumoMensal(){
+  const ym = $('dashMes').value || new Date().toISOString().slice(0,7);
+  $('dashMes').value = ym;
+  const [ini,fim] = monthStartEnd(ym);
+  const ativos = clientes.filter(c=>c.tipo!=='futuro' && dateInRange(c.data_contrato,ini,fim));
+  const valor = ativos.reduce((s,c)=>s+Number(c.valor_a_receber||0),0);
+  const com = ativos.reduce((s,c)=>s+calcComissao(c),0);
+  $('dashResumo').innerHTML = `
+    <div class="item"><strong>${ym}</strong>
+      <div>Clientes do mês: <b>${ativos.length}</b></div>
+      <div>Valor a receber: <b>${money(valor)}</b></div>
+      <div>Comissão prevista: <b>${money(com)}</b></div>
+    </div>`;
+}
+
+function renderTabelaClientes(){
+  const q = $('buscaCliente').value || '';
+  const fs = $('filtroStatus').value || '';
+  const rows = clientes.filter(c=>c.tipo!=='futuro')
+    .filter(c=>contains(`${c.nome} ${c.vendedor} ${c.status}`, q))
+    .filter(c=>!fs || contains(c.status||'', fs));
+  $('tbClientes').innerHTML = rows.length ? rows.map(c=>`
+    <tr>
+      <td><b>${escapeHtml(c.nome||'')}</b><div class="small muted">${escapeHtml(c.etapa||'')}</div></td>
+      <td>${escapeHtml(c.vendedor||'')}</td>
+      <td>${escapeHtml(c.status||'')}</td>
+      <td>${fmtDate(c.data_contrato)}</td>
+      <td>${money(c.valor_a_receber)}</td>
+      <td>${money(calcComissao(c))}</td>
+      <td class="noprint"><div class="toolbar"><button class="btn" onclick="editarCliente('${c.id}')">Editar</button><button class="btn red" onclick="excluirCliente('${c.id}')">Excluir</button></div></td>
+    </tr>`).join('') : '<tr><td colspan="7" class="muted">Nenhum cliente encontrado.</td></tr>';
+}
+
+function renderKanban(){
+  const etapas = ['Lead','Proposta','Contrato','Projeto','Instalação','Concluído'];
+  $('kanbanBoard').innerHTML = etapas.map(et=>{
+    const lista = clientes.filter(c=>c.tipo!=='futuro' && (c.etapa||'Lead')===et);
+    return `<div class="col"><h4>${et} <span class="pill blue">${lista.length}</span></h4>${lista.map(c=>`
+      <div class="item">
+        <strong>${escapeHtml(c.nome||'')}</strong>
+        <div class="small">Vendedor: ${escapeHtml(c.vendedor||'')}</div>
+        <div class="small">Valor a receber: ${money(c.valor_a_receber)}</div>
+        <div class="small">Prazo: ${fmtDate(c.data_prevista)}</div>
+        <div class="toolbar noprint" style="margin-top:8px"><button class="btn" onclick="editarCliente('${c.id}')">Editar</button></div>
+      </div>`).join('') || '<div class="muted">Sem clientes</div>'}</div>`;
+  }).join('');
+}
+
+function renderFuturos(){
+  const ini = $('futDataIni').value;
+  const fim = $('futDataFim').value;
+  const rows = clientes.filter(c=>c.tipo==='futuro').filter(c=>dateInRange(c.data_prevista || c.created_at?.slice(0,10), ini, fim));
+  $('tbFuturos').innerHTML = rows.length ? rows.map(c=>`
+    <tr>
+      <td><b>${escapeHtml(c.nome||'')}</b></td>
+      <td>${escapeHtml(c.vendedor||'')}</td>
+      <td>${fmtDate(c.data_prevista)}</td>
+      <td>${escapeHtml(c.status||'')}</td>
+      <td>${escapeHtml(c.observacoes||'')}</td>
+      <td class="noprint"><div class="toolbar"><button class="btn" onclick="editarCliente('${c.id}')">Editar</button><button class="btn green" onclick="resgatarFuturo('${c.id}')">Resgatar</button></div></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="muted">Nenhum cliente futuro encontrado.</td></tr>';
+}
+
+function maintenanceAlerts(){
+  const today = new Date();
+  return clientes.filter(c=>c.tipo!=='futuro' && c.data_contrato).map(c=>{
+    const contrato = new Date(c.data_contrato+'T00:00:00');
+    const manut = new Date(contrato); manut.setFullYear(manut.getFullYear()+1);
+    const alerta = new Date(manut); alerta.setDate(alerta.getDate()-10);
+    const dias = Math.ceil((alerta - today)/(1000*60*60*24));
+    return {...c, data_manutencao:manut.toISOString().slice(0,10), data_alerta:alerta.toISOString().slice(0,10), dias_restantes:dias};
+  }).sort((a,b)=>a.data_alerta.localeCompare(b.data_alerta));
+}
+
+function renderAlertas(){
+  const ini = $('aIni').value;
+  const fim = $('aFim').value;
+  const lista = maintenanceAlerts().filter(a=>dateInRange(a.data_alerta,ini,fim) || (!ini && !fim && a.dias_restantes>=-30 && a.dias_restantes<=60));
+  $('outAlertas').innerHTML = lista.length ? `<div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Contrato</th><th>Alerta</th><th>Manutenção</th><th>Dias</th><th>Status</th></tr></thead><tbody>${lista.map(a=>{
+    const klass = a.dias_restantes < 0 ? 'danger' : a.dias_restantes <= 10 ? 'warn' : 'blue';
+    const txt = a.dias_restantes < 0 ? 'Atrasado' : a.dias_restantes===0 ? 'Hoje' : 'Próximo';
+    return `<tr><td><b>${escapeHtml(a.nome||'')}</b></td><td>${fmtDate(a.data_contrato)}</td><td>${fmtDate(a.data_alerta)}</td><td>${fmtDate(a.data_manutencao)}</td><td>${a.dias_restantes}</td><td><span class="pill ${klass}">${txt}</span></td></tr>`;
+  }).join('')}</tbody></table></div>` : '<div class="muted">Nenhum alerta no período selecionado.</div>';
+}
+
+function relatorioComissao(){
+  const vend = $('rComVendedor').value.trim().toLowerCase();
+  let ini = $('rComIni').value, fim = $('rComFim').value;
+  const mes = $('rComMes').value;
+  if(mes){ [ini,fim] = monthStartEnd(mes); }
+  const rows = clientes.filter(c=>c.tipo!=='futuro')
+    .filter(c=>!vend || (c.vendedor||'').toLowerCase().includes(vend))
+    .filter(c=>dateInRange(c.data_contrato,ini,fim));
+  const total = rows.reduce((s,c)=>s+calcComissao(c),0);
+  $('outComissao').innerHTML = rows.length ? `<div class="item"><strong>Total de comissão: ${money(total)}</strong><div class="small">Registros: ${rows.length}</div></div><div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Vendedor</th><th>Contrato</th><th>Valor a receber</th><th>%</th><th>Comissão</th></tr></thead><tbody>${rows.map(c=>`<tr><td>${escapeHtml(c.nome||'')}</td><td>${escapeHtml(c.vendedor||'')}</td><td>${fmtDate(c.data_contrato)}</td><td>${money(c.valor_a_receber)}</td><td>${Number(c.comissao_percentual||0)}%</td><td>${money(calcComissao(c))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="muted">Sem dados para esse filtro.</div>';
+}
+
+function relatorioReceber(){
+  const cli = $('rRecCliente').value.trim().toLowerCase();
+  let [ini,fim] = monthStartEnd($('rRecMes').value);
+  const rows = clientes.filter(c=>c.tipo!=='futuro')
+    .filter(c=>!cli || (c.nome||'').toLowerCase().includes(cli))
+    .filter(c=>!$('rRecMes').value || dateInRange(c.data_contrato,ini,fim));
+  const total = rows.reduce((s,c)=>s+Number(c.valor_a_receber||0),0);
+  $('outReceber').innerHTML = rows.length ? `<div class="item"><strong>Total a receber: ${money(total)}</strong><div class="small">Registros: ${rows.length}</div></div><div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Contrato</th><th>Vendedor</th><th>Valor a receber</th></tr></thead><tbody>${rows.map(c=>`<tr><td>${escapeHtml(c.nome||'')}</td><td>${fmtDate(c.data_contrato)}</td><td>${escapeHtml(c.vendedor||'')}</td><td>${money(c.valor_a_receber)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="muted">Sem dados para esse filtro.</div>';
+}
+
+function relatorioFuturos(){
+  const ini = $('rFutIni').value, fim = $('rFutFim').value;
+  const rows = clientes.filter(c=>c.tipo==='futuro').filter(c=>dateInRange(c.data_prevista || c.created_at?.slice(0,10),ini,fim));
+  $('outFuturos').innerHTML = rows.length ? `<div class="item"><strong>Clientes futuros no período: ${rows.length}</strong></div><div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Vendedor</th><th>Data prevista</th><th>Status</th><th>Observações</th></tr></thead><tbody>${rows.map(c=>`<tr><td>${escapeHtml(c.nome||'')}</td><td>${escapeHtml(c.vendedor||'')}</td><td>${fmtDate(c.data_prevista)}</td><td>${escapeHtml(c.status||'')}</td><td>${escapeHtml(c.observacoes||'')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="muted">Sem clientes futuros no período.</div>';
+}
+
+function relatorioCliente(){
+  const nome = $('rCliNome').value.trim().toLowerCase();
+  const rows = clientes.filter(c=>(c.nome||'').toLowerCase().includes(nome));
+  $('outCliente').innerHTML = rows.length ? rows.map(c=>`<div class="item"><strong>${escapeHtml(c.nome||'')}</strong><div>Vendedor: ${escapeHtml(c.vendedor||'')}</div><div>Status: ${escapeHtml(c.status||'')} • Etapa: ${escapeHtml(c.etapa||'')}</div><div>Contrato: ${fmtDate(c.data_contrato)} • Prazo: ${fmtDate(c.data_prevista)}</div><div>Valor proposta: ${money(c.valor_proposta)} • Valor a receber: ${money(c.valor_a_receber)}</div><div>Observações: ${escapeHtml(c.observacoes||'')}</div></div>`).join('') : '<div class="muted">Cliente não encontrado.</div>';
+}
+
+(function init(){
+  bindTabs();
+  $('dashMes').value = new Date().toISOString().slice(0,7);
+  if(localStorage.getItem('evs_logged')==='1'){
+    $('loginView').classList.add('hidden');
+    $('appView').classList.remove('hidden');
+    loadAll();
+  }
+})();
+</script>
+</body>
+</html>
