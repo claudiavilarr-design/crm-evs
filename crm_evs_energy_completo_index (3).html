@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM EVS ENERGY Completo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:#f5f7fb; --card:#fff; --line:#dde5ef; --text:#1f2937; --muted:#6b7280;
+  --brand:#0f766e; --brand2:#14b8a6; --ok:#16a34a; --warn:#d97706; --danger:#dc2626;
+}
+* { box-sizing:border-box; }
+body { margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:var(--text); }
+header { background:linear-gradient(135deg,var(--brand),var(--brand2)); color:#fff; padding:18px 22px; position:sticky; top:0; z-index:10; }
+h1,h2,h3,h4 { margin:0 0 10px; }
+.wrap { max-width:1600px; margin:0 auto; padding:18px; }
+.tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.tab { border:1px solid var(--line); background:#fff; border-radius:999px; padding:10px 14px; cursor:pointer; font-weight:700; }
+.tab.active { background:var(--brand); color:#fff; }
+.section { display:none; }
+.section.active { display:block; }
+.grid { display:grid; gap:14px; }
+.stats { grid-template-columns:repeat(4,1fr); }
+.two { grid-template-columns:1.1fr .9fr; }
+.four { grid-template-columns:repeat(4,1fr); }
+.toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:14px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px; box-shadow:0 8px 30px rgba(15,23,42,.06); }
+.stat .big { font-size:30px; font-weight:800; margin-top:8px; }
+.muted { color:var(--muted); }
+.btn { border:none; border-radius:12px; padding:11px 14px; font-weight:700; cursor:pointer; }
+.btn.primary { background:var(--brand); color:#fff; }
+.btn.secondary { background:#e6fffb; color:#0f766e; }
+.btn.warn { background:#fff7ed; color:#9a3412; }
+.btn.danger { background:#fee2e2; color:#991b1b; }
+input,select,textarea { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+textarea { min-height:90px; resize:vertical; }
+.formgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.full { grid-column:1/-1; }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th,td { padding:10px 8px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+.badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; margin:2px 4px 0 0; }
+.b-info { background:#dbeafe; color:#1d4ed8; }
+.b-ok { background:#dcfce7; color:#166534; }
+.b-warn { background:#fff7ed; color:#9a3412; }
+.b-danger { background:#fee2e2; color:#991b1b; }
+.kanban { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
+.column { background:#eef3f8; border:1px solid var(--line); border-radius:18px; padding:12px; min-height:240px; }
+.client { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:10px; }
+.stages { display:grid; gap:10px; }
+.stage { display:grid; grid-template-columns:1.3fr .8fr .8fr auto; gap:8px; align-items:center; border:1px solid var(--line); border-radius:14px; padding:10px; background:#fff; }
+.stage.done { background:#dcfce7; border-color:#86efac; }
+.small { font-size:12px; }
+@media (max-width:1200px) { .stats,.two,.four,.kanban,.formgrid{grid-template-columns:1fr 1fr;} }
+@media (max-width:760px) { .stats,.two,.four,.kanban,.formgrid,.stage{grid-template-columns:1fr;} }
+@media print { header,.tabs,.no-print{display:none!important} body{background:#fff} .section{display:block!important} #kanbanSection,#cadastroSection{display:none!important} }
+</style>
+</head>
+<body>
+<header>
+  <h1>CRM EVS ENERGY</h1>
+  <div class="small">Online compartilhado • 2 acessos no mesmo link</div>
+</header>
+
+<div class="wrap">
+  <div class="tabs no-print">
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="kanban">Kanban</button>
+    <button class="tab" data-tab="cadastro">Cadastro</button>
+    <button class="tab" data-tab="futuros">Clientes futuros</button>
+    <button class="tab" data-tab="relatorios">Relatórios</button>
+  </div>
+
+  <section id="dashboardSection" class="section active">
+    <div class="toolbar no-print">
+      <input id="busca" placeholder="Buscar cliente, cidade, vendedor..." oninput="renderAll()">
+      <select id="filtroFunil" onchange="renderAll()"></select>
+      <input id="filtroMes" type="month" onchange="renderAll()">
+      <button class="btn secondary" onclick="novo('cliente')">Novo cliente</button>
+      <button class="btn secondary" onclick="novo('lead')">Novo futuro cliente</button>
+      <button class="btn primary" onclick="carregar()">Sincronizar</button>
+    </div>
+
+    <div class="grid stats">
+      <div class="card stat"><div class="muted">Registros</div><div class="big" id="stTotal">0</div></div>
+      <div class="card stat"><div class="muted">Valor total</div><div class="big" id="stValor">R$ 0,00</div></div>
+      <div class="card stat"><div class="muted">KWP total</div><div class="big" id="stKwp">0</div></div>
+      <div class="card stat"><div class="muted">Alertas</div><div class="big" id="stAlertas">0</div></div>
+    </div>
+
+    <div class="grid two">
+      <div class="card">
+        <h3>Alertas de prazo</h3>
+        <div id="alertas"></div>
+      </div>
+      <div class="card">
+        <h3>Resumo por vendedor</h3>
+        <div id="vendedores"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h3>Lista rápida</h3>
+      <div style="overflow:auto;">
+        <table>
+          <thead><tr><th>Cliente</th><th>Cidade</th><th>Vendedor</th><th>Funil</th><th>Valor</th><th>KWP</th><th>Ações</th></tr></thead>
+          <tbody id="tabelaRapida"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="kanbanSection" class="section">
+    <div class="kanban" id="kanban"></div>
+  </section>
+
+  <section id="cadastroSection" class="section">
+    <div class="card">
+      <div class="toolbar no-print">
+        <button class="btn secondary" onclick="novo('cliente')">Novo</button>
+        <button class="btn primary" onclick="salvar()">Salvar</button>
+      </div>
+      <form id="form" onsubmit="event.preventDefault(); salvar();">
+        <input type="hidden" name="id">
+        <input type="hidden" name="tipo" value="cliente">
+        <div class="formgrid">
+          <div><label>Nome do cliente</label><input name="nome" required></div>
+          <div><label>Telefone</label><input name="telefone"></div>
+          <div><label>Cidade</label><input name="cidade"></div>
+          <div><label>Funil</label><select name="status_funil"></select></div>
+
+          <div><label>KWP</label><input name="kwp" type="number" step="0.01"></div>
+          <div><label>Valor da proposta</label><input name="valor_proposta" type="number" step="0.01"></div>
+          <div><label>Quantidade de placas</label><input name="quantidade_placas" type="number"></div>
+          <div><label>Modelo inversor</label><input name="modelo_inversor"></div>
+
+          <div><label>Forma de financiamento</label><input name="forma_financiamento"></div>
+          <div><label>Valor pago na assinatura</label><input name="valor_pago_assinatura" type="number" step="0.01"></div>
+          <div><label>Vendedor</label><input name="vendedor"></div>
+          <div><label>Responsável proposta</label><input name="responsavel_proposta"></div>
+
+          <div><label>Comissão %</label><input name="comissao_percentual" type="number" step="0.01"></div>
+          <div><label>Comissão R$</label><input name="comissao_valor" type="number" step="0.01"></div>
+          <div><label>Fornecedor kit</label><input name="fornecedor_kit"></div>
+          <div><label>Data instalação</label><input name="data_instalacao" type="date"></div>
+
+          <div><label>Prazo entrega kit</label><input name="prazo_entrega_kit" type="date"></div>
+          <div><label>Prazo montagem</label><input name="prazo_montagem" type="date"></div>
+          <div><label>Prazo ligação</label><input name="prazo_ligacao" type="date"></div>
+          <div><label>Bônus limpeza (+1 ano)</label><input name="garantia_limpeza_data" type="date"></div>
+
+          <div class="full"><label>Observações</label><textarea name="observacoes"></textarea></div>
+        </div>
+
+        <div style="margin:18px 0 10px;"><strong>Etapas</strong> <span class="small muted">Cada etapa com data inicial, final e feito verde travado.</span></div>
+        <div id="stages" class="stages"></div>
+
+        <div class="card" id="leadBox" style="margin-top:14px; background:#fff7ed; display:none;">
+          <h4>Cliente futuro</h4>
+          <div class="formgrid">
+            <div><label>Motivo do não fechamento</label><input name="motivo_nao_fechou"></div>
+            <div><label>Responsável atendimento</label><input name="responsavel_atendimento"></div>
+            <div><label>Próxima ação</label><input name="proxima_acao"></div>
+            <div><label>Data próxima ação</label><input name="data_proxima_acao" type="date"></div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section id="futurosSection" class="section">
+    <div class="card">
+      <div class="toolbar no-print"><button class="btn secondary" onclick="novo('lead')">Novo cliente futuro</button></div>
+      <div style="overflow:auto;">
+        <table>
+          <thead><tr><th>Nome</th><th>Telefone</th><th>Cidade</th><th>KWP</th><th>Valor</th><th>Responsável</th><th>Motivo</th><th>Ações</th></tr></thead>
+          <tbody id="tabelaLeads"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="relatoriosSection" class="section">
+    <div class="card no-print">
+      <div class="toolbar">
+        <input id="relMes" type="month">
+        <input id="relCidade" placeholder="Cidade">
+        <input id="relVendedor" placeholder="Vendedor">
+        <button class="btn primary" onclick="gerarRelatorio()">Gerar relatório</button>
+        <button class="btn warn" onclick="window.print()">Imprimir / PDF</button>
+      </div>
+    </div>
+    <div class="card"><div id="saidaRelatorio">Escolha os filtros e clique em gerar relatório.</div></div>
+  </section>
+</div>
+
+<script>
+const supabase = window.supabase.createClient('https://vtsrrsgzcophirxaqtob.supabase.co','sb_publishable_t7zgaSKekiTHCVHZOEmLqg_u-RAOnCc');
+const FUNIS = ['Lead','Proposta','Contrato','Aprovação Técnica','Kit Comprado','Montagem','Ligação','Finalizado'];
+const ETAPAS = ['Proposta feita','Contrato assinado','Grupo com cliente criado','Financiamento definido','Procuração reconhecida','Troca de titularidade ENEL','App ENEL criado','Envio aprovação técnica','Retorno técnico','Kit solar comprado','Montagem realizada','Ligação concluída'];
+let registros = [];
+
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+FUNIS.forEach(f=>document.getElementById('filtroFunil').add(new Option(f,f)));
+document.getElementById('filtroFunil').insertBefore(new Option('Todos',''), document.getElementById('filtroFunil').firstChild);
+FUNIS.forEach(f=>document.forms.form.status_funil.add(new Option(f,f)));
+novo('cliente');
+carregar();
+
+function tab(n) {
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===n));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById(n+'Section').classList.add('active');
+}
+function moeda(v) { return Number(v||0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'}); }
+function num(v) { return Number(v||0); }
+function hoje() { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+function payloadPadrao() {
+  return {
+    quantidade_placas:'', modelo_inversor:'', forma_financiamento:'', valor_pago_assinatura:'',
+    responsavel_proposta:'', comissao_percentual:'', comissao_valor:'', fornecedor_kit:'',
+    observacoes:'', motivo_nao_fechou:'', responsavel_atendimento:'', proxima_acao:'', data_proxima_acao:'',
+    etapas: ETAPAS.map(nome=>({nome,feito:false,inicio:'',fim:''}))
+  };
+}
+function norm(r) {
+  r.payload = typeof r.payload==='object' && r.payload ? r.payload : payloadPadrao();
+  if (!Array.isArray(r.payload.etapas)) r.payload.etapas = payloadPadrao().etapas;
+  ETAPAS.forEach(nome=>{ if(!r.payload.etapas.some(e=>e.nome===nome)) r.payload.etapas.push({nome,feito:false,inicio:'',fim:''}); });
+  return r;
+}
+function filtrados() {
+  const q = document.getElementById('busca').value.trim().toLowerCase();
+  const funil = document.getElementById('filtroFunil').value;
+  const mes = document.getElementById('filtroMes').value;
+  return registros.filter(r=>{
+    const txt = [r.nome,r.cidade,r.vendedor,r.telefone].join(' ').toLowerCase();
+    const ok1 = !q || txt.includes(q);
+    const ok2 = !funil || r.status_funil===funil;
+    const ok3 = !mes || (r.created_at||'').slice(0,7)===mes;
+    return ok1 && ok2 && ok3;
+  });
+}
+function alertasRegistro(r) {
+  let atrasados=0, proximos=0, detalhes=[];
+  const h = new Date(hoje());
+  norm(r).payload.etapas.forEach(e=>{
+    if(e.feito) return;
+    const prazo = e.fim || e.inicio;
+    if(!prazo) return;
+    const diff = Math.ceil((new Date(prazo)-h)/86400000);
+    if(diff<0) { atrasados++; detalhes.push(`${e.nome} atrasada`); }
+    else if(diff<=3) { proximos++; detalhes.push(`${e.nome} próxima`); }
+  });
+  return {atrasados, proximos, detalhes};
+}
+function renderAll() { renderDashboard(); renderKanban(); renderLeads(); }
+function renderDashboard() {
+  const arr = filtrados();
+  document.getElementById('stTotal').textContent = arr.length;
+  document.getElementById('stValor').textContent = moeda(arr.reduce((s,r)=>s+num(r.valor_proposta),0));
+  document.getElementById('stKwp').textContent = arr.reduce((s,r)=>s+num(r.kwp),0).toLocaleString('pt-BR');
+  let at=0, pr=0; arr.forEach(r=>{ const a=alertasRegistro(r); at+=a.atrasados; pr+=a.proximos; });
+  document.getElementById('stAlertas').textContent = `${at} / ${pr}`;
+
+  document.getElementById('alertas').innerHTML = arr.flatMap(r=>alertasRegistro(r).detalhes.map(d=>`<div class="client"><strong>${r.nome}</strong><div class="small muted">${d}</div></div>`)).join('') || '<div class="muted">Sem alertas.</div>';
+
+  const resumo = {};
+  arr.forEach(r=>{ const k=r.vendedor||'Sem vendedor'; resumo[k] ||= {q:0,valor:0,kwp:0}; resumo[k].q++; resumo[k].valor+=num(r.valor_proposta); resumo[k].kwp+=num(r.kwp); });
+  document.getElementById('vendedores').innerHTML = Object.entries(resumo).map(([k,v])=>`<div class="client"><strong>${k}</strong><div class="small muted">${v.q} registro(s) • ${moeda(v.valor)} • ${v.kwp.toLocaleString('pt-BR')} KWP</div></div>`).join('') || '<div class="muted">Sem dados.</div>';
+
+  document.getElementById('tabelaRapida').innerHTML = arr.map(r=>`<tr>
+    <td><strong>${r.nome||''}</strong><div class="small muted">${r.telefone||''}</div></td>
+    <td>${r.cidade||''}</td><td>${r.vendedor||''}</td>
+    <td><span class="badge b-info">${r.status_funil||''}</span></td>
+    <td>${moeda(r.valor_proposta)}</td><td>${num(r.kwp).toLocaleString('pt-BR')}</td>
+    <td class="no-print"><button class="btn secondary" onclick="editar('${r.id}')">Editar</button> <button class="btn danger" onclick="excluir('${r.id}')">Excluir</button></td>
+  </tr>`).join('');
+}
+function renderKanban() {
+  const arr = registros.filter(r=>r.tipo!=='lead');
+  document.getElementById('kanban').innerHTML = FUNIS.map(f=>`<div class="column"><h3>${f}</h3>${arr.filter(r=>r.status_funil===f).map(r=>`<div class="client"><h4>${r.nome}</h4><div class="small muted">${r.cidade||''} • ${r.vendedor||''}</div><div><span class="badge b-info">${num(r.kwp).toLocaleString('pt-BR')} KWP</span><span class="badge b-ok">${moeda(r.valor_proposta)}</span></div><div class="no-print" style="margin-top:8px;"><button class="btn secondary" onclick="editar('${r.id}')">Editar</button></div></div>`).join('') || '<div class="muted">Sem clientes</div>'}</div>`).join('');
+}
+function renderLeads() {
+  const leads = registros.filter(r=>r.tipo==='lead');
+  document.getElementById('tabelaLeads').innerHTML = leads.map(r=>`<tr><td><strong>${r.nome||''}</strong></td><td>${r.telefone||''}</td><td>${r.cidade||''}</td><td>${num(r.kwp).toLocaleString('pt-BR')}</td><td>${moeda(r.valor_proposta)}</td><td>${r.payload.responsavel_atendimento||''}</td><td>${r.payload.motivo_nao_fechou||''}</td><td class="no-print"><button class="btn secondary" onclick="editar('${r.id}')">Editar</button></td></tr>`).join('');
+}
+function stageRow(e,i) {
+  return `<div class="stage ${e.feito?'done':''}">
+    <div><strong>${e.nome}</strong><div class="small muted">${e.feito?'Feito e travado':'Pendente'}</div></div>
+    <div><label class="small">Data inicial</label><input type="date" data-i="${i}" data-k="inicio" value="${e.inicio||''}" ${e.feito?'disabled':''}></div>
+    <div><label class="small">Data final</label><input type="date" data-i="${i}" data-k="fim" value="${e.fim||''}" ${e.feito?'disabled':''}></div>
+    <div><label class="small">Marcação</label><button type="button" class="btn ${e.feito?'primary':'warn'}" onclick="marcarFeito(${i})" ${e.feito?'disabled':''}>${e.feito?'FEITO':'Marcar feito'}</button></div>
+  </div>`;
+}
+function novo(tipo='cliente') {
+  const f=document.forms.form; f.reset(); f.id.value=''; f.tipo.value=tipo; f.status_funil.value=tipo==='lead'?'Lead':'Proposta';
+  document.getElementById('stages').innerHTML = payloadPadrao().etapas.map(stageRow).join('');
+  document.getElementById('leadBox').style.display = tipo==='lead' ? 'block':'none';
+  tab('cadastro');
+}
+function editar(id) {
+  const r = norm(registros.find(x=>x.id===id)); if(!r) return;
+  const f=document.forms.form; f.id.value=r.id; f.tipo.value=r.tipo||'cliente';
+  ['nome','telefone','cidade','status_funil','kwp','valor_proposta','vendedor','data_instalacao','prazo_entrega_kit','prazo_montagem','prazo_ligacao','garantia_limpeza_data'].forEach(k=>f[k].value=r[k]||'');
+  ['quantidade_placas','modelo_inversor','forma_financiamento','valor_pago_assinatura','responsavel_proposta','comissao_percentual','comissao_valor','fornecedor_kit','observacoes','motivo_nao_fechou','responsavel_atendimento','proxima_acao','data_proxima_acao'].forEach(k=>f[k].value=r.payload[k]||'');
+  document.getElementById('stages').innerHTML = r.payload.etapas.map(stageRow).join('');
+  document.getElementById('leadBox').style.display = f.tipo.value==='lead' ? 'block':'none';
+  tab('cadastro');
+}
+function marcarFeito(i) {
+  const row = document.querySelectorAll('#stages .stage')[i];
+  row.classList.add('done');
+  row.querySelectorAll('input,button').forEach(el=>el.disabled=true);
+  row.querySelector('button').textContent='FEITO';
+}
+function coletarPayload() {
+  const f=document.forms.form;
+  const p={ quantidade_placas:f.quantidade_placas.value, modelo_inversor:f.modelo_inversor.value, forma_financiamento:f.forma_financiamento.value, valor_pago_assinatura:f.valor_pago_assinatura.value, responsavel_proposta:f.responsavel_proposta.value, comissao_percentual:f.comissao_percentual.value, comissao_valor:f.comissao_valor.value, fornecedor_kit:f.fornecedor_kit.value, observacoes:f.observacoes.value, motivo_nao_fechou:f.motivo_nao_fechou.value, responsavel_atendimento:f.responsavel_atendimento.value, proxima_acao:f.proxima_acao.value, data_proxima_acao:f.data_proxima_acao.value, etapas:[] };
+  document.querySelectorAll('#stages .stage').forEach((row)=>{
+    const nome=row.querySelector('strong').textContent;
+    const feito=row.classList.contains('done');
+    const inputs=row.querySelectorAll('input');
+    p.etapas.push({nome,feito,inicio:inputs[0].value,fim:inputs[1].value});
+  });
+  return p;
+}
+async function salvar() {
+  const f=document.forms.form;
+  const row={ tipo:f.tipo.value||'cliente', nome:f.nome.value, telefone:f.telefone.value, cidade:f.cidade.value, kwp:num(f.kwp.value), valor_proposta:num(f.valor_proposta.value), vendedor:f.vendedor.value, status_funil:f.status_funil.value, data_instalacao:f.data_instalacao.value||null, prazo_entrega_kit:f.prazo_entrega_kit.value||null, prazo_montagem:f.prazo_montagem.value||null, prazo_ligacao:f.prazo_ligacao.value||null, garantia_limpeza_data:f.garantia_limpeza_data.value||null, payload:coletarPayload() };
+  let resp;
+  if(f.id.value) resp = await supabase.from('crm_evs').update(row).eq('id', f.id.value);
+  else resp = await supabase.from('crm_evs').insert([row]);
+  if(resp.error) return alert('Erro ao salvar: '+resp.error.message);
+  alert('Salvo com sucesso.');
+  await carregar();
+  tab('dashboard');
+}
+async function excluir(id) {
+  if(!confirm('Excluir este registro?')) return;
+  const resp = await supabase.from('crm_evs').delete().eq('id', id);
+  if(resp.error) return alert('Erro ao excluir: '+resp.error.message);
+  await carregar();
+}
+async function carregar() {
+  const resp = await supabase.from('crm_evs').select('*').order('created_at', {ascending:false});
+  if(resp.error) {
+    document.getElementById('tabelaRapida').innerHTML = `<tr><td colspan="7">Tabela crm_evs não encontrada. Rode o SQL primeiro.</td></tr>`;
+    return;
+  }
+  registros = (resp.data||[]).map(norm);
+  renderAll();
+}
+function gerarRelatorio() {
+  const mes=document.getElementById('relMes').value, cidade=document.getElementById('relCidade').value.trim().toLowerCase(), vendedor=document.getElementById('relVendedor').value.trim().toLowerCase();
+  const arr = registros.filter(r=>r.tipo!=='lead' && (!mes || (r.created_at||'').slice(0,7)===mes) && (!cidade || (r.cidade||'').toLowerCase().includes(cidade)) && (!vendedor || (r.vendedor||'').toLowerCase().includes(vendedor)));
+  const totalV=arr.reduce((s,r)=>s+num(r.valor_proposta),0), totalK=arr.reduce((s,r)=>s+num(r.kwp),0);
+  document.getElementById('saidaRelatorio').innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><strong>Mês:</strong> ${mes||'Todos'}<br><strong>Cidade:</strong> ${cidade||'Todas'}<br><strong>Vendedor:</strong> ${vendedor||'Todos'}</div><div><strong>Total vendas:</strong> ${moeda(totalV)}<br><strong>Total KWP:</strong> ${totalK.toLocaleString('pt-BR')}</div></div><div style="overflow:auto;margin-top:12px;"><table><thead><tr><th>Cliente</th><th>Financiamento</th><th>Cidade</th><th>Valor</th><th>Mês</th><th>Responsável</th><th>KWP</th></tr></thead><tbody>${arr.map(r=>`<tr><td>${r.nome||''}</td><td>${r.payload.forma_financiamento||''}</td><td>${r.cidade||''}</td><td>${moeda(r.valor_proposta)}</td><td>${(r.created_at||'').slice(0,7)}</td><td>${r.vendedor||''}</td><td>${num(r.kwp).toLocaleString('pt-BR')}</td></tr>`).join('') || '<tr><td colspan="7">Nenhum dado encontrado.</td></tr>'}</tbody></table></div>`;
+}
+</script>
+</body>
+</html>
